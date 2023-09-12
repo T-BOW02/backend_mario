@@ -1,14 +1,14 @@
 import pymongo
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify
 import jwt
-import os
 import datetime
 from pymongo.errors import ServerSelectionTimeoutError
 from bson.json_util import dumps
-from flask_socketio import SocketIO
+from flask_cors import CORS
 
 app = Flask(__name__)
-socketio = SocketIO(app)
+CORS(app)
+
 connected_users = {}
 client = pymongo.MongoClient(
     "mongodb+srv://TbowLeder:Codons9876@cluster0.r5zgyhj.mongodb.net/?retryWrites=true&w=majority")
@@ -20,11 +20,6 @@ try:
     print("Connexion OK!")
 except ServerSelectionTimeoutError as err:
     print(f"Impossible de se connecter à MongoDB: {err}")
-
-
-@app.before_request
-def log_request():
-    print(f"{request.method} {request.url}")
 
 
 def remove_user_tokens(token):
@@ -165,9 +160,6 @@ def login_with_token():
             return jsonify({'message': 'Invalid token'}), 401
 
 
-
-
-
 @app.route("/get_messages", methods=["POST"])
 def get_messages():
     data = request.get_json()
@@ -192,33 +184,6 @@ def get_messages():
             return jsonify({'message': 'Invalid token'}), 401
 
 
-@socketio.on('connect')
-def handle_connect():
-    token = request.args.get('token')
-    check_tocken = decode_auth_token(token)
-    if check_tocken == 'Token expired' or check_tocken == "Token invalid":
-        print('error')
-    else:
-        user = db.users.find_one({"tokens": token})
-        if user:
-            if token in connected_users:
-                print('noon')
-                # append the new session to the existing user
-                connected_users[token].append(request.sid)
-            else:
-                print('ok')
-                # add the new user to the connected_users
-                connected_users[token] = [request.sid]
-
-
-@socketio.on('disconnect')
-def handle_disconnect():
-    user_token = request.args.get('token')
-    if user_token in connected_users:
-        del connected_users[user_token]
-
-
-
 @app.route('/send_message', methods=['POST'])
 def send_message():
     data = request.get_json()
@@ -228,7 +193,6 @@ def send_message():
     recipient_username = recipient["username"]
     user = db.users.find_one({"tokens": sender_token})
     if recipient and user:
-        tokens_recipient = recipient["tokens"]
         email_sender = user["email"]
         user_name_sender = user["username"]
         message = {"message": data['message'], "user_name_sender": user_name_sender, "imagePath": data["imagePath"]}
@@ -252,10 +216,6 @@ def send_message():
                 }
                 db.conversations.insert_one(conversation)
 
-        for token in tokens_recipient:
-            if token in connected_users:
-                recipient_sid = connected_users[token]
-                # socketio.emit('new_message', {'sender': sender_token, 'message': message}, room=recipient_sid)
     else:
         return jsonify({'message': "not good"}), 401
     return jsonify({'message': "good man"}), 201
@@ -266,38 +226,29 @@ def user_list():
     data = dumps(db.users.find({}, {"username", "email"},))
     return data
 
+
 @app.route('/getresto', methods=['GET'])
 def getresto():
-    data = dumps(db.resto.find({},{"name","image"},))
+    data = dumps(db.resto.find({}, {"name", "image"},))
     return jsonify(data)
+
+
 @app.route('/addresto', methods=['POST'])
 def addresto():
-    # Récupération des données du formulaire ou d'une requête JSON
     name = request.form.get('name') or request.json.get('name')
-    image = request.form.get('image') or request.json.get('image')
-
-    # Vérification des données
-    if not name or not image:
+    image_file = request.files.get('image')
+    date = datetime.datetime.now()
+    strDate = str(date.strftime("%Y%m%d%H%M%S%f"))
+    if not name or not image_file:
         return jsonify({"error": "Name and Image are required!"}), 400
+    if image_file:
+        location = f'C:/Users/marti/PycharmProjects/backend_mario/images/{strDate}.jpg'
+        image_file.save(location)
 
-    # Insertion des données dans la collection 'resto'
-    result = db.resto.insert_one({"name": name, "image": image})
+    result = db.resto.insert_one({"name": name, "image": strDate})
 
-    # Renvoie une réponse avec l'ID du nouveau document inséré
     return jsonify({"message": "Resto added successfully", "id": str(result.inserted_id)})
-
-@app.route('/images/<path:filename>')
-def serve_image(filename):
-    if os.path.abspath(os.path.join('./images/', filename)).startswith(os.path.abspath('./images/')):
-        return send_from_directory('./images/', filename)
-    else:
-        return "Accès non autorisé", 403
-
-
-
-
-
 
 
 if __name__ == '__main__':
-    socketio.run(app,host="192.168.1.120",port=5000)
+    app.run(host="localhost", port=5000)
