@@ -1,6 +1,7 @@
 import pymongo
 from flask import Flask, request, jsonify, send_from_directory
 import jwt
+import os
 import datetime
 from pymongo.errors import ServerSelectionTimeoutError
 from bson.json_util import dumps
@@ -164,9 +165,7 @@ def login_with_token():
             return jsonify({'message': 'Invalid token'}), 401
 
 
-@app.route('/images/<path:filename>')
-def serve_image(filename):
-    return send_from_directory('./images/', filename)
+
 
 
 @app.route("/get_messages", methods=["POST"])
@@ -287,46 +286,18 @@ def addresto():
     # Renvoie une réponse avec l'ID du nouveau document inséré
     return jsonify({"message": "Resto added successfully", "id": str(result.inserted_id)})
 
-@app.route('/user_descriptor', methods=['POST'])
-def user_descriptor():
-    data = request.get_json()
-    filename = data['filename']
-    xR = data['xR']
-    xG = data['xG']
-    xB = data['xB']
-    myFileR = open("user_descriptor/" + 'R' + filename, "w+")
-    myFileR.write(str(xR))
-    myFileR.close()
-
-    myFileG = open("user_descriptor/" + 'G' + filename, "w+")
-    myFileG.write(str(xG))
-    myFileG.close()
-
-    myFileB = open("user_descriptor/" + 'B' + filename, "w+")
-    myFileB.write(str(xB))
-    myFileB.close()
-
-    return jsonify({'message': "good man"}), 201
+@app.route('/images/<path:filename>')
+def serve_image(filename):
+    if os.path.abspath(os.path.join('./images/', filename)).startswith(os.path.abspath('./images/')):
+        return send_from_directory('./images/', filename)
+    else:
+        return "Accès non autorisé", 403
 
 
-@app.route('/get_user_descriptor', methods=['POST'])
-def get_user_descriptor():
-    data = request.get_json()
-    filename = data['filename']
 
-    myFileR = open("user_descriptor/" + 'R' + filename, "r")
-    xR = str(myFileR.read())
-    myFileR.close()
 
-    myFileG = open("user_descriptor/" + 'G' + filename, "r")
-    xG = str(myFileG.read())
-    myFileG.close()
 
-    myFileB = open("user_descriptor/" + 'B' + filename, "r")
-    xB = str(myFileB.read())
-    myFileB.close()
-    return jsonify({'xR': xR, 'xG': xG, 'xB': xB}), 201
 
 
 if __name__ == '__main__':
-    socketio.run(app,host="127.0.0.1",port=5000)
+    socketio.run(app,host="192.168.1.120",port=5000)
