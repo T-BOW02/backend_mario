@@ -1,5 +1,7 @@
+import os
+
 import pymongo
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 import jwt
 import datetime
 from pymongo.errors import ServerSelectionTimeoutError
@@ -242,13 +244,20 @@ def addresto():
     if not name or not image_file:
         return jsonify({"error": "Name and Image are required!"}), 400
     if image_file:
-        location = f'C:/Users/marti/PycharmProjects/backend_mario/images/{strDate}.jpg'
+        location = f'images/{strDate}.jpg'
         image_file.save(location)
 
     result = db.resto.insert_one({"name": name, "image": strDate})
 
     return jsonify({"message": "Resto added successfully", "id": str(result.inserted_id)})
 
+
+@app.route('/images/<path:filename>')
+def serve_image(filename):
+    if os.path.abspath(os.path.join('./images/', filename)).startswith(os.path.abspath('./images/')):
+        return send_from_directory('./images/', filename)
+    else:
+        return "Accès non autorisé", 403
 
 if __name__ == '__main__':
     app.run(host="localhost", port=5000)
