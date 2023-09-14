@@ -231,7 +231,7 @@ def user_list():
 
 @app.route('/getresto', methods=['GET'])
 def getresto():
-    data = dumps(db.resto.find({}, {"name", "image"},))
+    data = dumps(db.resto.find({}, {"name", "image", "_id"},))
     return jsonify(data)
 
 
