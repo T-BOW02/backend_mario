@@ -1,6 +1,7 @@
 import os
 
 import pymongo
+from bson import ObjectId
 from flask import Flask, request, jsonify, send_from_directory
 import jwt
 import datetime
@@ -235,9 +236,26 @@ def getresto():
     return jsonify(data)
 
 
+@app.route('/getmenu', methods=['POST'])
+def getmenu():
+    id_resto = request.form.get('id')
+    data = dumps(db.resto.find_one({"id": id_resto}))
+    print(data)
+    return jsonify(data)
+
+
+@app.route('/editmenu', methods=['POST'])
+def editmenu():
+    data = request.get_json()
+    print(data)
+    object_id = ObjectId(data['id'])
+    db.resto.update_one({"_id": object_id}, {"$push": {"menu": data["modified_menu"]}})
+    return jsonify({"message": "Menu edited successfully"})
+
+
 @app.route('/addresto', methods=['POST'])
 def addresto():
-    name = request.form.get('name') or request.json.get('name')
+    name = request.form.get('name')
     image_file = request.files.get('image')
     date = datetime.datetime.now()
     strDate = str(date.strftime("%Y%m%d%H%M%S%f"))
@@ -258,6 +276,7 @@ def serve_image(filename):
         return send_from_directory('./images/', filename)
     else:
         return "Accès non autorisé", 403
+
 
 if __name__ == '__main__':
     app.run(host="localhost", port=5000)
